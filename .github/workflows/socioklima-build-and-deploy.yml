@@ -1,0 +1,75 @@
+name: Build & deploy
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - '**'
+      - '.github/workflows/socioklima-build-and-deploy.yml'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  AZURE_CONTAINER_APP_NAME: ${{ vars.PROJECT_NAME }}-${{ github.ref_name }}
+  IS_MAIN_BRANCH: ${{ github.ref_name == 'main' }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Git branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure Yarn and Next cache
+        uses: actions/cache@v4
+        id: yarn-nextjs-cache
+        with:
+          path: |
+            ./node_modules
+            ./.next
+          # Generate a new cache whenever packages or source files change.
+          key: ${{ runner.os }}-yarn-nextjs-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('./app', './lib', './messages', './models', './prisma', './public', './services', './templates', './types', './utils', '*.js', '*.ts', '*.config.json') }}
+          # If source files changed but packages didn't, rebuild from a prior cache.
+          restore-keys: |
+            ${{ runner.os }}-yarn-nextjs-${{ hashFiles('**/yarn.lock') }}-
+
+      - name: Install Yarn dependencies
+        if: steps.yarn-nextjs-cache.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile --immutable
+
+      - name: Build Next project
+        if: steps.yarn-nextjs-cache.outputs.cache-hit != 'true'
+        run: yarn build
+        env:
+          POSTGRES_PRISMA_URL: ${{ env.IS_MAIN_BRANCH && secrets.MAIN_POSTGRES_PRISMA_URL || secrets.DEVELOP_POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ env.IS_MAIN_BRANCH && secrets.MAIN_POSTGRES_URL_NON_POOLING || secrets.DEVELOP_POSTGRES_URL_NON_POOLING }}
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          registryUrl: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}
+          registryUsername: ${{ secrets.AZURE_CONTAINER_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.AZURE_CONTAINER_REGISTRY_PASSWORD }}
+          containerAppName: ${{ env.AZURE_CONTAINER_APP_NAME }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToBuild: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.AZURE_CONTAINER_APP_NAME }}:${{ github.sha }}
+          disableTelemetry: true
+          dockerfilePath: Dockerfile

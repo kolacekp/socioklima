@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+model User {
+  id                        String          @id @default(uuid())
+  username                  String?
+  email                     String?
+  name                      String?
+  password                  String
+  verificationRequired      Boolean         @default(false) @map("verification_required")
+  verificationToken         String?         @unique @map("verification_token")
+  verificationTokenValidTo  DateTime?       @map("verification_token_valid_to")
+  verifiedAt                DateTime?       @map("verified_at")
+  passwordResetToken        String?         @unique @map("password_reset_token")
+  passwordResetTokenValidTo DateTime?       @map("password_reset_token_valid_to")
+  phone                     String?
+  createdAt                 DateTime        @default(now()) @map("created_at")
+  updatedAt                 DateTime?       @map("updated_at")
+  deletedAt                 DateTime?       @map("deleted_at")
+  activeSchoolId            String?         @map("active_school_id")
+  roles                     Role[]
+  schools                   School[]
+  licenses                  License[]
+  teacher                   Teacher?
+  principal                 Principal?
+  pupil                     Pupil?
+  expert                    Expert?
+  questionnaires            Questionnaire[]
+
+  @@map("users")
+}
+
+model Role {
+  id    String @id @default(uuid())
+  slug  String @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model School {
+  id                String          @id @default(uuid())
+  country           Int
+  schoolName        String          @map("school_name")
+  address           String
+  city              String
+  zipCode           String          @map("zip_code")
+  businessId        String          @map("business_id")
+  taxNumber         String?         @map("tax_number")
+  billingInfoEqual  Boolean         @map("billing_info_equal")
+  billingName       String?         @map("billing_name")
+  billingAddress    String?         @map("billing_address")
+  billingCity       String?         @map("billing_city")
+  billingZipCode    String?         @map("billing_zip_code")
+  billingBusinessId String?         @map("billing_business_id")
+  billingTaxNumber  String?         @map("billing_tax_number")
+  schoolType        Int             @map("school_type")
+  website           String?
+  principal         Principal?
+  contactUser       User            @relation(fields: [contactUserId], references: [id])
+  contactUserId     String          @map("contact_user_id")
+  activatedAt       DateTime?       @map("activated_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime?       @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+  licenses          License[]
+  classes           Class[]
+  teachers          Teacher[]
+  experts           Expert[]
+  questionnaires    Questionnaire[]
+
+  @@map("schools")
+}
+
+model License {
+  id               String    @id @default(uuid())
+  validFrom        DateTime  @default(now()) @map("valid_from")
+  validUntil       DateTime  @map("valid_until")
+  classesTotal     Int       @map("classes_total")
+  classesRemaining Int       @map("classes_remaining")
+  product          Int
+  price            Float
+  generateInvoice  Boolean   @default(true) @map("generate_invoice")
+  isPaid           Boolean   @default(false) @map("is_paid")
+  invoiceNumber    Int?      @map("invoice_number")
+  isUnlimited      Boolean?  @default(false) @map("is_unlimited")
+  school           School    @relation(fields: [schoolId], references: [id])
+  schoolId         String    @map("school_id")
+  createdBy        User      @relation(fields: [createdById], references: [id])
+  createdById      String    @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime? @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+  classes          Class[]
+
+  @@map("licenses")
+}
+
+model Class {
+  id             String          @id @default(uuid())
+  name           String
+  grade          Int
+  license        License         @relation(fields: [licenseId], references: [id])
+  licenseId      String          @map("license_id")
+  isArchived     Boolean         @default(false) @map("is_archived")
+  school         School          @relation(fields: [schoolId], references: [id])
+  schoolId       String          @map("school_id")
+  pupils         Pupil[]
+  genderRequired Boolean         @default(false) @map("gender_required")
+  teacher        Teacher?        @relation(fields: [teacherId], references: [id])
+  teacherId      String?         @map("teacher_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime?       @map("updated_at")
+  deletedAt      DateTime?       @map("deleted_at")
+  questionnaires Questionnaire[]
+
+  @@map("classes")
+}
+
+model Pupil {
+  id                         String                      @id @default(uuid())
+  number                     Int
+  class                      Class                       @relation(fields: [classId], references: [id])
+  classId                    String                      @map("class_id")
+  user                       User                        @relation(fields: [userId], references: [id])
+  userId                     String                      @unique @map("user_id")
+  gender                     Int                         @default(0)
+  nationality                String?
+  consent                    Boolean                     @default(false)
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime?                   @map("updated_at")
+  deletedAt                  DateTime?                   @map("deleted_at")
+  questionnaireResults       QuestionnaireResult[]
+  questionnaireResultAnswers QuestionnaireResultAnswer[]
+  PupilToQuestionnaire       PupilToQuestionnaire[]
+
+  @@map("pupils")
+}
+
+model Teacher {
+  id        String    @id @default(uuid())
+  school    School    @relation(fields: [schoolId], references: [id])
+  schoolId  String    @map("school_id")
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String    @unique @map("user_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  classes   Class[]
+
+  @@map("teachers")
+}
+
+model Principal {
+  id        String    @id @default(uuid())
+  school    School?   @relation(fields: [schoolId], references: [id])
+  schoolId  String?   @unique @map("school_id")
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String    @unique @map("user_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("principals")
+}
+
+model Expert {
+  id                  String    @id @default(uuid())
+  user                User      @relation(fields: [userId], references: [id])
+  userId              String    @unique @map("user_id")
+  authorizationNumber String?   @map("authorization_number")
+  isVerified          Boolean   @default(false) @map("is_verified")
+  verifiedAt          DateTime? @map("verified_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime? @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+  schools             School[]
+
+  @@map("experts")
+}
+
+model Questionnaire {
+  id                   String                 @id @default(uuid())
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime?              @map("updated_at")
+  deletedAt            DateTime?              @map("deleted_at")
+  closedAt             DateTime?              @map("closed_at")
+  isArchived           Boolean                @default(false) @map("is_archived")
+  // Relations
+  createdBy            User                   @relation(fields: [createdById], references: [id])
+  createdById          String                 @map("created_by_id")
+  questionnaireType    QuestionnaireType      @relation(fields: [questionnaireTypeId], references: [id])
+  questionnaireTypeId  String                 @map("questionnaire_type_id")
+  class                Class                  @relation(fields: [classId], references: [id])
+  classId              String                 @map("class_id")
+  school               School                 @relation(fields: [schoolId], references: [id])
+  schoolId             String                 @map("school_id")
+  questionnaireResults QuestionnaireResult[]
+  PupilToQuestionnaire PupilToQuestionnaire[]
+
+  @@map("questionnaires")
+}
+
+model PupilToQuestionnaire {
+  id              String        @id @default(uuid())
+  pupil           Pupil         @relation(fields: [pupilId], references: [id])
+  pupilId         String        @map("pupil_id")
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id])
+  questionnaireId String        @map("questionnaire_id")
+  consent         Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime?     @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+}
+
+model QuestionnaireType {
+  id                 String              @id @default(uuid())
+  name               String
+  shortName          String              @map("short_name")
+  description        String?
+  linesOfDescription Int?                @map("lines_of_description")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime?           @map("updated_at")
+  deletedAt          DateTime?           @map("deleted_at")
+  isActive           Boolean             @default(true) @map("is_active")
+  // Relations
+  questionnaires     Questionnaire[]
+  questionnaireParts QuestionnairePart[]
+  reports            Report[]
+
+  @@map("questionnaire_types")
+}
+
+model QuestionnairePart {
+  id                  String            @id @default(uuid())
+  name                String
+  order               Int
+  description         String?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime?         @map("updated_at")
+  deletedAt           DateTime?         @map("deleted_at")
+  // Relations
+  questionnaireType   QuestionnaireType @relation(fields: [questionnaireTypeId], references: [id])
+  questionnaireTypeId String            @map("questionnaire_type_id")
+  questions           Question[]
+
+  @@map("questionnaire_parts")
+}
+
+model Question {
+  id                         String                      @id @default(uuid())
+  name                       String
+  description                String?
+  order                      Int?
+  enableComment              Boolean                     @map("enable_comment")
+  hasAnswerOptions           Boolean                     @map("has_answer_options")
+  answerForAllClassmates     Boolean                     @default(false) @map("answer_for_all_classmates")
+  selectOptionsMin           Int?                        @map("select_options_min")
+  selectOptionsMax           Int?                        @map("select_options_max")
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime?                   @map("updated_at")
+  deletedAt                  DateTime?                   @map("deleted_at")
+  // Relations
+  questionnaireParts         QuestionnairePart[]
+  answerOptions              AnswerOption[]
+  questionnaireResultAnswers QuestionnaireResultAnswer[]
+
+  @@map("questions")
+}
+
+model AnswerOption {
+  id                         String                      @id @default(uuid())
+  name                       String
+  group                      Int
+  type                       Int
+  value                      String
+  imgUrl                     String?                     @map("img_url")
+  description                String?
+  acceptance                 Int?
+  involvement                Int?
+  safety                     Int?
+  category                   String?
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime?                   @map("updated_at")
+  deletedAt                  DateTime?                   @map("deleted_at")
+  // Relations
+  questions                  Question[]
+  questionnaireResultAnswers QuestionnaireResultAnswer[]
+
+  @@map("answer_options")
+}
+
+model QuestionnaireResult {
+  id                         String                      @id @default(uuid())
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime?                   @map("updated_at")
+  deletedAt                  DateTime?                   @map("deleted_at")
+  isCompleted                Boolean                     @default(false) @map("is_completed")
+  lastCompletedPartId        String?                     @map("last_completed_part_id")
+  // Relations
+  pupil                      Pupil                       @relation(fields: [pupilId], references: [id])
+  pupilId                    String                      @map("pupil_id")
+  questionnaire              Questionnaire               @relation(fields: [questionnaireId], references: [id])
+  questionnaireId            String                      @map("questionnaire_id")
+  questionnaireResultAnswers QuestionnaireResultAnswer[]
+
+  @@map("questionnaire_results")
+}
+
+model QuestionnaireResultAnswer {
+  id                    String              @id @default(uuid())
+  value                 String?
+  comment               String?
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime?           @map("updated_at")
+  deletedAt             DateTime?           @map("deleted_at")
+  // Relations
+  question              Question            @relation(fields: [questionId], references: [id])
+  questionId            String              @map("question_id")
+  pupilId               String?             @map("pupil_id")
+  questionnaireResult   QuestionnaireResult @relation(fields: [questionnaireResultId], references: [id])
+  questionnaireResultId String              @map("questionnaire_result_id")
+  answerOptions         AnswerOption[]
+  answerPupils          Pupil[]
+
+  @@map("questionnaire_result_answers")
+}
+
+model Report {
+  id                  String            @id @default(uuid())
+  name                String
+  product             Int
+  link                String
+  isAvailable         Boolean           @default(true) @map("is_available")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime?         @map("updated_at")
+  deletedAt           DateTime?         @map("deleted_at")
+  // relations
+  questionnaireType   QuestionnaireType @relation(fields: [questionnaireTypeId], references: [id])
+  questionnaireTypeId String            @map("questionnaire_type_id")
+
+  @@map("reports")
+}

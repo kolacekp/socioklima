@@ -1,0 +1,47 @@
+{
+  "root": true,
+  "extends": [
+    "next/core-web-vitals",
+    "eslint:recommended", // Eslint recommended configuration by eslint.
+    "plugin:@typescript-eslint/recommended", // Turns on rules from TypeScript-specific plugin.
+    "plugin:prettier/recommended" // Turns off all rules that are unnecessary or might conflict with Prettier.
+  ],
+  "rules": {
+    "prettier/prettier": ["error", { "singleQuote": true, "tabWidth": 2 }],
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-non-null-assertion": "off"
+  },
+  "plugins": ["@typescript-eslint"],
+  "env": {
+    "es6": true, // enable ES2015 features.
+    "browser": true, // enable use of global browser variables like `windows`.
+    "node": true // enable use of global node variables like `process`.
+  },
+  "parser": "@typescript-eslint/parser",
+  // Allows Eslint to understand TypeScript syntax.
+  "parserOptions": {
+    "tsconfigRootDir": "./",
+    "ecmaVersion": "latest", // ECMAScript version supported in the project.
+    "sourceType": "module",
+    // set to `module` because we ue ECMAScript modules.
+    "ecmaFeatures": {
+      "jsx": true // enable jsx for React.
+    },
+    "project": "./tsconfig.json"
+  },
+  "settings": {
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts", ".tsx"] // use typescript-eslint parser for .ts|tsx files.
+    },
+    "import/resolver": {
+      "typescript": {
+        "alwaysTryTypes": true
+      },
+      "node": {
+        "extensions": [".js", ".jsx", ".ts", ".tsx"] // RXJS import marked as unresolved without this
+      }
+    }
+  }
+}
